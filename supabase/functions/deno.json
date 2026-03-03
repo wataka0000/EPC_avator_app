@@ -1,0 +1,17 @@
+{
+  "nodeModulesDir": "auto",
+  "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.95.3",
+    "djwt": "jsr:@wok/djwt@3.0.2"
+  },
+  "lint": {
+    "rules": {
+      "exclude": [
+        "no-import-prefix",
+        "no-unversioned-import"
+      ]
+    }
+  }
+}
+
+
