@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClients";
+import { getFunctionErrorMessage } from "@/lib/supabaseFunctionError";
 import { useRouter } from "next/navigation";
 
 type SkillItem = {
@@ -111,7 +112,14 @@ export default function SkillsPage() {
         router.push("/login");
         return;
       }
-      if (!session.access_token) {
+      const { data: refreshed, error: refreshErr } =
+        await supabase.auth.refreshSession();
+      const accessToken = refreshed.session?.access_token ?? session.access_token;
+
+      if (refreshErr) {
+        throw new Error(`セッション更新に失敗しました: ${refreshErr.message}`);
+      }
+      if (!accessToken) {
         throw new Error(
           "ログイン情報（access_token）が取得できません。再ログインしてください。"
         );
@@ -154,33 +162,19 @@ export default function SkillsPage() {
 
       if (vErr) throw new Error(vErr.message);
 
-      const fnUrl =
-        "https://mukemgtcnrjkptdhubgd.supabase.co/functions/v1/generate-snapshot";
-      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-      if (!anonKey) {
-        throw new Error(
-          "NEXT_PUBLIC_SUPABASE_ANON_KEY が .env.local に設定されていません。"
-        );
-      }
-
-      const res = await fetch(fnUrl, {
-        method: "POST",
+      const { error: fnErr } = await supabase.functions.invoke("generate-snapshot", {
         headers: {
-          "Content-Type": "application/json",
-          apikey: anonKey,
+          Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({
+        body: {
           assessment_id: assessment.id,
-          access_token: session.access_token,
-        }),
+          access_token: accessToken,
+        },
       });
 
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(
-          `generate-snapshot failed: ${res.status} ${JSON.stringify(json)}`
-        );
+      if (fnErr) {
+        const detail = await getFunctionErrorMessage(fnErr);
+        throw new Error(`generate-snapshot failed: ${detail}`);
       }
 
       router.push("/lobby");

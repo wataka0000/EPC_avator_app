@@ -52,15 +52,23 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return j({ error: "Method not allowed" }, 405);
 
   try {
-    const PROJECT_URL = Deno.env.get("PROJECT_URL");
-    const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY");
+    // Prefer Supabase-managed defaults to avoid mismatched custom secrets.
+    const PROJECT_URL = Deno.env.get("SUPABASE_URL") ?? Deno.env.get("PROJECT_URL");
+    const SERVICE_ROLE_KEY =
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY");
     if (!PROJECT_URL || !SERVICE_ROLE_KEY) {
       return j({ error: "Missing PROJECT_URL or SERVICE_ROLE_KEY" }, 500);
     }
 
     const body = await req.json().catch(() => ({} as any));
     const assessmentId = body?.assessment_id as string | undefined;
-    const accessToken = body?.access_token as string | undefined;
+    const accessTokenFromBody = body?.access_token as string | undefined;
+    const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization");
+    const accessTokenFromHeader =
+      authHeader?.toLowerCase().startsWith("bearer ")
+        ? authHeader.slice(7).trim()
+        : undefined;
+    const accessToken = accessTokenFromHeader || accessTokenFromBody;
 
     if (!assessmentId) return j({ code: 400, message: "assessment_id is required" }, 400);
     if (!accessToken) return j({ code: 401, message: "access_token is required" }, 401);

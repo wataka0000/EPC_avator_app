@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClients";
+import { getFunctionErrorMessage } from "@/lib/supabaseFunctionError";
 
 export function useGenerateSnapshot() {
   const [submitting, setSubmitting] = useState(false);
@@ -12,7 +13,14 @@ export function useGenerateSnapshot() {
     setError(null);
 
     const { data: s } = await supabase.auth.getSession();
-    const accessToken = s.session?.access_token;
+    const { data: refreshed, error: refreshErr } =
+      await supabase.auth.refreshSession();
+    const accessToken = refreshed.session?.access_token ?? s.session?.access_token;
+    if (refreshErr) {
+      setSubmitting(false);
+      setError(`Session refresh failed: ${refreshErr.message}`);
+      return;
+    }
     if (!accessToken) {
       setSubmitting(false);
       setError("Not authenticated");
@@ -20,22 +28,18 @@ export function useGenerateSnapshot() {
     }
 
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-snapshot`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            assessment_id: assessmentId,
-            access_token: accessToken, // あなたの現仕様に合わせる
-          }),
-        }
-      );
+      const { error: fnErr } = await supabase.functions.invoke("generate-snapshot", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: {
+          assessment_id: assessmentId,
+          access_token: accessToken, // 現仕様の互換性維持
+        },
+      });
 
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        // 409 already generating など
-        throw new Error(json?.message ?? json?.error ?? `Request failed: ${res.status}`);
+      if (fnErr) {
+        throw new Error(await getFunctionErrorMessage(fnErr));
       }
     } catch (e: any) {
       setError(e.message ?? String(e));
