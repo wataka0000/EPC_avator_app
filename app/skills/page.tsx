@@ -29,6 +29,10 @@ type Domain = {
   sort_order: number;
   skill_subdomains: Subdomain[];
 };
+type AssessmentValueRow = {
+  item_id: string;
+  value: number;
+};
 
 export default function SkillsPage() {
   const router = useRouter();
@@ -81,12 +85,60 @@ export default function SkillsPage() {
       setDomains(filtered);
 
       const init: Record<string, number> = {};
+      const itemRangeById: Record<string, { min: number; max: number }> = {};
       for (const d of filtered) {
         for (const sd of d.skill_subdomains) {
-          for (const it of sd.skill_items) init[it.id] = 0;
+          for (const it of sd.skill_items) {
+            init[it.id] = 0;
+            itemRangeById[it.id] = { min: it.min_value, max: it.max_value };
+          }
         }
       }
-      setValues(init);
+
+      const { data: snapshot, error: snapshotErr } = await supabase
+        .from("user_snapshots")
+        .select("latest_assessment_id")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      if (snapshotErr) {
+        setMsg(snapshotErr.message);
+        setValues(init);
+        setLoading(false);
+        return;
+      }
+
+      const latestAssessmentId = snapshot?.latest_assessment_id;
+      if (!latestAssessmentId) {
+        setValues(init);
+        setLoading(false);
+        return;
+      }
+
+      const { data: previousRows, error: previousErr } = await supabase
+        .from("skill_assessment_values")
+        .select("item_id, value")
+        .eq("assessment_id", latestAssessmentId);
+
+      if (previousErr) {
+        setMsg(previousErr.message);
+        setValues(init);
+        setLoading(false);
+        return;
+      }
+
+      const prefilled = { ...init };
+      for (const row of (previousRows ?? []) as AssessmentValueRow[]) {
+        const range = itemRangeById[row.item_id];
+        if (!range) continue;
+        const numericValue = Number(row.value);
+        if (!Number.isFinite(numericValue)) continue;
+        prefilled[row.item_id] = Math.max(
+          range.min,
+          Math.min(range.max, numericValue)
+        );
+      }
+      setValues(prefilled);
 
       setLoading(false);
     };
