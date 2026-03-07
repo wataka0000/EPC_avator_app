@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClients";
 import { getFunctionErrorMessage } from "@/lib/supabaseFunctionError";
 import { useRouter } from "next/navigation";
+import { TopTabs } from "../lobby/_components/TopTabs";
 
 type SkillItem = {
   id: string;
@@ -187,102 +188,108 @@ export default function SkillsPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto max-w-5xl px-6 py-10">
-        <p className="text-sm text-muted-foreground">Loading...</p>
-      </main>
+      <>
+        <TopTabs />
+        <main className="mx-auto max-w-5xl px-6 py-10">
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </main>
+      </>
     );
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-foreground">スキル入力（0–5）</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          各項目を評価して保存すると、アバター生成が開始されます。
-        </p>
-        {msg && (
-          <p className="mt-3 text-sm text-destructive whitespace-pre-wrap">
-            {msg}
+    <>
+      <TopTabs />
+      <main className="mx-auto max-w-5xl px-6 py-10">
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold text-foreground">スキル入力（0–5）</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            各項目を評価して保存すると、アバター生成が開始されます。
           </p>
-        )}
-      </div>
-
-      {!designDomain ? (
-        <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground shadow-sm">
-          設計ドメインが見つかりません（初期データ投入を確認してください）
+          {msg && (
+            <p className="mt-3 text-sm text-destructive whitespace-pre-wrap">
+              {msg}
+            </p>
+          )}
         </div>
-      ) : (
-        <section className="grid gap-5">
-          {designDomain.skill_subdomains
-            .sort((a, b) => a.sort_order - b.sort_order)
-            .map((sd) => (
-              <div
-                key={sd.id}
-                className="rounded-xl border border-border bg-card p-6 shadow-sm"
-              >
-                <h2 className="text-lg font-semibold text-foreground">{sd.name}</h2>
 
-                <div className="mt-4 grid gap-4">
-                  {sd.skill_items
-                    .sort((a, b) => a.sort_order - b.sort_order)
-                    .map((it) => (
-                      <div key={it.id} className="grid gap-2">
-                        <div>
-                          <div className="text-sm font-semibold text-foreground">
-                            {it.name}
-                          </div>
-                          {it.description && (
-                            <div className="text-xs text-muted-foreground">
-                              {it.description}
+        {!designDomain ? (
+          <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground shadow-sm">
+            設計ドメインが見つかりません（初期データ投入を確認してください）
+          </div>
+        ) : (
+          <section className="grid gap-5">
+            {designDomain.skill_subdomains
+              .sort((a, b) => a.sort_order - b.sort_order)
+              .map((sd) => (
+                <div
+                  key={sd.id}
+                  className="rounded-xl border border-border bg-card p-6 shadow-sm"
+                >
+                  <h2 className="text-lg font-semibold text-foreground">{sd.name}</h2>
+
+                  <div className="mt-4 grid gap-4">
+                    {sd.skill_items
+                      .sort((a, b) => a.sort_order - b.sort_order)
+                      .map((it) => (
+                        <div key={it.id} className="grid gap-2">
+                          <div>
+                            <div className="text-sm font-semibold text-foreground">
+                              {it.name}
                             </div>
-                          )}
-                        </div>
+                            {it.description && (
+                              <div className="text-xs text-muted-foreground">
+                                {it.description}
+                              </div>
+                            )}
+                          </div>
 
-                        <div className="flex flex-wrap items-center gap-3">
-                          <input
-                            type="range"
-                            min={it.min_value}
-                            max={it.max_value}
-                            value={values[it.id] ?? 0}
-                            onChange={(e) =>
-                              setValues((v) => ({
-                                ...v,
-                                [it.id]: Number(e.target.value),
-                              }))
-                            }
-                            className="w-60"
-                            disabled={saving}
-                          />
-                          <input
-                            type="number"
-                            min={it.min_value}
-                            max={it.max_value}
-                            value={values[it.id] ?? 0}
-                            onChange={(e) =>
-                              setValues((v) => ({
-                                ...v,
-                                [it.id]: Number(e.target.value),
-                              }))
-                            }
-                            className="w-20 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground"
-                            disabled={saving}
-                          />
+                          <div className="flex flex-wrap items-center gap-3">
+                            <input
+                              type="range"
+                              min={it.min_value}
+                              max={it.max_value}
+                              value={values[it.id] ?? 0}
+                              onChange={(e) =>
+                                setValues((v) => ({
+                                  ...v,
+                                  [it.id]: Number(e.target.value),
+                                }))
+                              }
+                              className="w-60"
+                              disabled={saving}
+                            />
+                            <input
+                              type="number"
+                              min={it.min_value}
+                              max={it.max_value}
+                              value={values[it.id] ?? 0}
+                              onChange={(e) =>
+                                setValues((v) => ({
+                                  ...v,
+                                  [it.id]: Number(e.target.value),
+                                }))
+                              }
+                              className="w-20 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground"
+                              disabled={saving}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-        </section>
-      )}
+              ))}
+          </section>
+        )}
 
-      <button
-        onClick={onSave}
-        disabled={saving}
-        className="mt-6 rounded-lg border border-border bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {saving ? "保存中..." : "保存してロビーへ"}
-      </button>
-    </main>
+        <button
+          onClick={onSave}
+          disabled={saving}
+          className="mt-6 rounded-lg border border-border bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {saving ? "保存中..." : "保存してロビーへ"}
+        </button>
+      </main>
+    </>
   );
 }
