@@ -1,0 +1,100 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build
+
+  supabase-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate migration filenames
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -d "supabase/migrations" ]; then
+            echo "No supabase/migrations directory found. Skipping filename checks."
+            exit 0
+          fi
+
+          bad_files=0
+          while IFS= read -r file; do
+            base="$(basename "$file")"
+            if [[ ! "$base" =~ ^[0-9]{14}_[a-z0-9_]+\.sql$ ]]; then
+              echo "Invalid migration filename: $file"
+              bad_files=1
+            fi
+          done < <(find supabase/migrations -type f -name "*.sql" | sort)
+
+          if [ "$bad_files" -ne 0 ]; then
+            echo "Migration filename validation failed."
+            exit 1
+          fi
+
+          echo "Migration filename validation passed."
+
+  supabase-migration-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: ${{ hashFiles('supabase/migrations/*.sql') != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Show Supabase CLI version
+        run: supabase --version
+
+      - name: Start local Supabase stack
+        run: supabase start
+
+      - name: Lint database schema
+        run: supabase db lint --local --level error
+
+      - name: Replay migrations on clean local DB
+        run: supabase db reset --local --no-seed
+
+      - name: Stop local Supabase stack
+        if: always()
+        run: supabase stop

@@ -2,6 +2,16 @@
 
 Skill Avatar application built with Next.js and Supabase.
 
+## Ops Template (Supabase + Codex)
+
+Operations template and CI/CD policy:
+- `docs/ops/supabase-codex-template.md`
+
+GitHub Actions templates:
+- `.github/workflows/ci.yml`
+- `.github/workflows/deploy-stg.yml`
+- `.github/workflows/deploy-prod.yml`
+
 ## Getting Started
 
 Run the development server:
