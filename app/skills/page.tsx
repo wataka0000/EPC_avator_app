@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClients";
 import { getFunctionErrorMessage } from "@/lib/supabaseFunctionError";
 import { useRouter } from "next/navigation";
-import { TopTabs } from "../lobby/_components/TopTabs";
+import PageHeaderWithTabs from "../_components/PageHeaderWithTabs";
 
 type SkillItem = {
   id: string;
@@ -41,6 +41,8 @@ export default function SkillsPage() {
   const [domains, setDomains] = useState<Domain[]>([]);
   const [values, setValues] = useState<Record<string, number>>({});
   const [msg, setMsg] = useState<string | null>(null);
+  const [selectedDomainId, setSelectedDomainId] = useState<string>("");
+  const [selectedSubdomainId, setSelectedSubdomainId] = useState<string>("");
 
   useEffect(() => {
     const run = async () => {
@@ -83,6 +85,14 @@ export default function SkillsPage() {
       })) as Domain[];
 
       setDomains(filtered);
+      const firstDomain = filtered
+        .slice()
+        .sort((a, b) => a.sort_order - b.sort_order)[0];
+      const firstSubdomain = firstDomain?.skill_subdomains
+        ?.slice()
+        .sort((a, b) => a.sort_order - b.sort_order)[0];
+      setSelectedDomainId(firstDomain?.id ?? "");
+      setSelectedSubdomainId(firstSubdomain?.id ?? "");
 
       const init: Record<string, number> = {};
       const itemRangeById: Record<string, { min: number; max: number }> = {};
@@ -146,10 +156,25 @@ export default function SkillsPage() {
     run();
   }, [router]);
 
-  const designDomain = useMemo(
-    () => domains.find((d) => d.key === "design") ?? null,
+  const sortedDomains = useMemo(
+    () => domains.slice().sort((a, b) => a.sort_order - b.sort_order),
     [domains]
   );
+  const selectedDomain =
+    sortedDomains.find((domain) => domain.id === selectedDomainId) ??
+    sortedDomains[0] ??
+    null;
+  const sortedSubdomains = useMemo(
+    () =>
+      (selectedDomain?.skill_subdomains ?? [])
+        .slice()
+        .sort((a, b) => a.sort_order - b.sort_order),
+    [selectedDomain]
+  );
+  const selectedSubdomain =
+    sortedSubdomains.find((sd) => sd.id === selectedSubdomainId) ??
+    sortedSubdomains[0] ??
+    null;
 
   const onSave = async () => {
     if (saving) return;
@@ -240,21 +265,20 @@ export default function SkillsPage() {
 
   if (loading) {
     return (
-      <>
-        <TopTabs />
-        <main className="mx-auto max-w-5xl px-6 py-10">
+      <div className="min-h-screen bg-background">
+        <PageHeaderWithTabs title="スキル入力" />
+        <main className="mx-auto w-full max-w-6xl px-6 py-6">
           <p className="text-sm text-muted-foreground">Loading...</p>
         </main>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <TopTabs />
-      <main className="mx-auto max-w-5xl px-6 py-10">
+    <div className="min-h-screen bg-background">
+      <PageHeaderWithTabs title="スキル入力" />
+      <main className="mx-auto w-full max-w-6xl px-6 py-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-foreground">スキル入力（0–5）</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             各項目を評価して保存すると、アバター生成が開始されます。
           </p>
@@ -265,23 +289,76 @@ export default function SkillsPage() {
           )}
         </div>
 
-        {!designDomain ? (
+        {domains.length === 0 ? (
           <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground shadow-sm">
-            設計ドメインが見つかりません（初期データ投入を確認してください）
+            スキルドメインが見つかりません（初期データ投入を確認してください）
           </div>
         ) : (
           <section className="grid gap-5">
-            {designDomain.skill_subdomains
-              .sort((a, b) => a.sort_order - b.sort_order)
-              .map((sd) => (
-                <div
-                  key={sd.id}
-                  className="rounded-xl border border-border bg-card p-6 shadow-sm"
-                >
-                  <h2 className="text-lg font-semibold text-foreground">{sd.name}</h2>
+            <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="grid gap-1">
+                  <span className="text-sm font-medium text-foreground">ドメイン</span>
+                  <select
+                    value={selectedDomain?.id ?? ""}
+                    onChange={(e) => {
+                      const nextDomain =
+                        sortedDomains.find((d) => d.id === e.target.value) ?? null;
+                      const nextSubdomain = nextDomain?.skill_subdomains
+                        ?.slice()
+                        .sort((a, b) => a.sort_order - b.sort_order)[0];
+                      setSelectedDomainId(e.target.value);
+                      setSelectedSubdomainId(nextSubdomain?.id ?? "");
+                    }}
+                    className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+                    disabled={saving}
+                    aria-label="入力するスキルドメイン"
+                  >
+                    {sortedDomains.map((domain) => (
+                      <option key={domain.id} value={domain.id}>
+                        {domain.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-                  <div className="mt-4 grid gap-4">
-                    {sd.skill_items
+                {sortedSubdomains.length > 1 ? (
+                  <label className="grid gap-1">
+                    <span className="text-sm font-medium text-foreground">カテゴリ</span>
+                    <select
+                      value={selectedSubdomain?.id ?? ""}
+                      onChange={(e) => setSelectedSubdomainId(e.target.value)}
+                      className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+                      disabled={saving}
+                      aria-label="入力するスキルカテゴリ"
+                    >
+                      {sortedSubdomains.map((sd) => (
+                        <option key={sd.id} value={sd.id}>
+                          {sd.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <div className="grid content-end">
+                    <p className="text-sm text-muted-foreground">
+                      カテゴリ: {selectedSubdomain?.name ?? "-"}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {selectedDomain && selectedSubdomain ? (
+              <div className="grid gap-4">
+                <h2 className="text-xl font-semibold text-foreground">
+                  {selectedDomain.name} / {selectedSubdomain.name}
+                </h2>
+
+                <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                  <div className="grid gap-4">
+                    {selectedSubdomain.skill_items
+                      .slice()
                       .sort((a, b) => a.sort_order - b.sort_order)
                       .map((it) => (
                         <div key={it.id} className="grid gap-2">
@@ -330,7 +407,8 @@ export default function SkillsPage() {
                       ))}
                   </div>
                 </div>
-              ))}
+              </div>
+            ) : null}
           </section>
         )}
 
@@ -342,6 +420,6 @@ export default function SkillsPage() {
           {saving ? "保存中..." : "保存してロビーへ"}
         </button>
       </main>
-    </>
+    </div>
   );
 }
